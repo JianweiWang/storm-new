@@ -5,16 +5,14 @@ import java.util.Iterator;
 
 public class MyUtils {
 
-	/**
-	 * @param args
-	 */
+
 	public static double average(Collection<Double> c) {
 		int size = c.size();
 		double average ;
 		double sum = 0;
 		Iterator iter = c.iterator();
 		while(iter.hasNext()) {
-			sum = sum +((double)iter.next());
+			sum = sum +((Double)iter.next());
 		}
 		average = sum / size;
 		return average;

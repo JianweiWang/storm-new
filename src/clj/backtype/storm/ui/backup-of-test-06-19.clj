@@ -101,9 +101,10 @@
 (defn compute-executor-capacity-modified [^ExecutorSummary e]
   (if (nil? e) (println "e is nil")
   (let [stats (.get_stats e)
-        stats1 (if (.get_specific stats)
+        stats1 (
+                 ;if (.get_specific stats)
                  ;(println "stats.get_specific() is nil!")
-                  (if (.is_set_bolt (.get_specific stats))
+                  if (.is_set_bolt (.get_specific stats))
                      (-> stats
                      (ui-core/aggregate-bolt-stats true)
                      (ui-core/aggregate-bolt-streams)
@@ -111,9 +112,9 @@
                      (get "600"))
                  (-> stats
                    (ui-core/aggregate-spout-stats true)
-                   (ui-core/aggregate-spout-streams)
+                   (ui-core/aggregate-spout-streams)                 
                    swap-map-order
-                     (get "600")))
+                     (get "600"))
                 
                  )
         uptime (nil-to-zero (.get_uptime_secs e))
@@ -167,7 +168,9 @@
                    (if(< cnt1 executor-size)
                      (recur (inc cnt1 )
                        (let [executor (.get executors  cnt1 )
-                             usage (if ((complement nil?) executor) (compute-executor-capacity-modified executor))
+                             ;wjw-test (println executor)
+                             ;usage (if ((complement nil?) executor) (compute-executor-capacity-modified executor))
+                             usage (compute-executor-capacity-modified executor)
                              component-id (.get_component_id executor)
                             usage-in-map (.get topology-executor-map (str topology-name "-" component-id))]
                      ;;get max capacity of all executors of each bolt.
@@ -412,6 +415,7 @@
                                      (wait-and-rebalance rebalance-bolt topology-name bolt-name parallism (+ parallism 1))
                                      )
                                      ;(println "test")))
+                                     
                                    (if (and (and (< usage 0.1) ((complement =) bolt-name "__acker")) 
                                             (is-level-avaliable? topology-executor (- parallism 1)))
                                      (let [current-parallism (- parallism 1)
@@ -575,7 +579,7 @@
     )
   ([task ^Long time]
     (.schedule (new java.util.Timer) task time)))
-;;re
+;;rebalance
 (defn check-rebalance-loop []
   (println topology-executor-level-map)
   (while true
@@ -605,30 +609,30 @@
 (def init-flag 0)
 ;;main
 (defn main-test [] 
- ; (def sm (StormMonitor.))
-  ;(println "-------------------parallism of each bolt---------------------------")
-  ;(println current-bolt-parallism)
-  ;(mk-executor-topology-map executor-topology-map sm)
-  ;(get-bolt-capacity sm topology-executor-map)
-  ;(println  executor-topology-map)
-  ;(println "-------------------capacity of each bolt---------------------------")
-  ;(println topology-executor-map)
-  ;(do-rebalance)
-  ;(get-throughput-of-topology sm)
-  ;(println "-------------------throughput of each topology---------------------------")
-  ;(println topology-throughput-map)
+  (def sm (StormMonitor.))
+  (println "-------------------parallism of each bolt---------------------------")
+  (println current-bolt-parallism)
+  (mk-executor-topology-map executor-topology-map sm)
+  (get-bolt-capacity sm topology-executor-map)
+  (println  executor-topology-map)
+  (println "-------------------capacity of each bolt---------------------------")
+  (println topology-executor-map)
+  (do-rebalance)
+  (get-throughput-of-topology sm)
+  (println "-------------------throughput of each topology---------------------------")
+  (println topology-throughput-map)
   ;(println )
-  (def file-writer (java.io.FileWriter. "/root/storm/storm_experiment/workload_and_throughput.txt" true))
-  (def throughput (str "throughput: " (int (get-throughput-of-topology-by-name "wordcount"))  "\n"))
-  (def work-load (str "workload: " (int (get-workload-of-topology-by-name "wordcount")) "\n"))
-  (def uptime (str "uptime: " (int (/ (- (System/currentTimeMillis) (.get topology-start-time "wordcount") ) 1000)) "s" "\n"))
-  (print throughput)
-  (print work-load)
-  (.write file-writer uptime)
-  (.write file-writer throughput)
-  (.write file-writer work-load)
-  (.flush file-writer)
-  (.close file-writer)
+  ;(def file-writer (java.io.FileWriter. "/root/storm/storm_experiment/workload_and_throughput.txt" true))
+  ;(def throughput (str "throughput: " (int (get-throughput-of-topology-by-name "wc-100"))  "\n"))
+  ;(def work-load (str "workload: " (int (get-workload-of-topology-by-name "wc-100")) "\n"))
+  ;(def uptime (str "uptime: " (int (/ (- (System/currentTimeMillis) (.get topology-start-time "wc-100") ) 1000)) "s" "\n"))
+  ;(print throughput)
+  ;(print work-load)
+  ;(.write file-writer uptime)
+  ;(.write file-writer throughput)
+  ;(.write file-writer work-load)
+  ;(.flush file-writer)
+  ;(.close file-writer)
   ;(println bolt-queue)
 ;(println (get-bolt-capacity-by-name "wordcount" "sentenceSplitBolt"))
   )
@@ -666,14 +670,14 @@
 ;                    )))))
 (init-current-bolt-parallism current-bolt-parallism (StormMonitor.))
 (println topology-start-time)
-(Thread/sleep 30000)
-(let [tname "wordcount"
-      bname "wordCountBolt"
-      parallism 4]
-  (rebalance-bolt tname bname parallism)
-  )
-(Thread/sleep 10000)
-(my-timer main-task 20 5000)
+;(Thread/sleep 30000)
+;;(let [tname "wc-100"
+;;      bname "wordCountBolt"
+;;      parallism 4]
+ ;; (rebalance-bolt tname bname parallism)
+ ;; )
+;(Thread/sleep 10000)
+(my-timer main-task 20 50000)
 ;(Thread/sleep 120000)
 ;(rebalance-bolt "wordcount-dynamic" "wordCountBolt" 4)
 ;(println "=======================thread is starting")
