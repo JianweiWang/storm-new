@@ -151,7 +151,8 @@
                        )))))))))@capacity))
 
 ;;get the bolt which needs to be rebalanced, related information is stored in topology-executor-map.
-(defn get-bolt-capacity [^StormMonitor sm  ^java.util.HashMap topology-executor-map] 
+(defn get-bolt-capacity [^StormMonitor sm  ^java.util.HashMap topology-executor-map]
+  (.clear topology-executor-map)
   (let [topologies (.getTopology sm)
         length (.size topologies)
         executor-list-need-adapted (list )]
@@ -179,7 +180,7 @@
                        ;(.put capacity-bolt-map component-id usage)
                        (if (> usage usage-in-map) 
                          (.put topology-executor-map (str topology-name "-" component-id) usage)
-                        ; (.put capacity-bolt-map component-id usage))
+                       ; (.put capacity-bolt-map component-id usage))
                        ;(cons e executor-list-need-adapted)
 ;                       (if ((complement nil?) usage-in-map)
 ;                         (if (< usage-in-map usage)
@@ -192,15 +193,14 @@
                      )
                                          
                    )
-                ;(.put topology-executor-map topology-name capacity-bolt-map ) 
+               ; (.put topology-executor-map topology-name capacity-bolt-map )
              )
                      )
                                      
            )
           )
   )
-  )
-  )
+  ))
 ;; rebalance bolt
 (defn rebalance-bolt [topology-name bolt-name bolt-parallism]
   (if (and (> bolt-parallism 0) (< bolt-parallism 16)) 
@@ -391,12 +391,14 @@
 (defn do-rebalance []
   (let [map-length (.size topology-executor-map)
         topology-executors (.keySet topology-executor-map)
+        ;topologies (.keySet topology-executor-map)
         topology-executors (java.util.ArrayList. topology-executors)]
     (println "doing rebalance")
     (loop [cnt 0 acc 1]
       (if (< cnt map-length )  
         (let [topology-executor (.get topology-executors cnt)
               usage (.get topology-executor-map topology-executor)
+              print-test (println (str "*******************:" usage))
               parallism (.get current-bolt-parallism topology-executor)
               topology-name (get (clojure.string/split topology-executor #"\-") 0)
               bolt-name (get (clojure.string/split topology-executor #"\-") 1)
@@ -614,7 +616,7 @@
   (println current-bolt-parallism)
   (mk-executor-topology-map executor-topology-map sm)
   (get-bolt-capacity sm topology-executor-map)
-  (println  executor-topology-map)
+  ;(println  executor-topology-map)
   (println "-------------------capacity of each bolt---------------------------")
   (println topology-executor-map)
   (do-rebalance)
@@ -677,7 +679,7 @@
  ;; (rebalance-bolt tname bname parallism)
  ;; )
 ;(Thread/sleep 10000)
-(my-timer main-task 20 50000)
+(my-timer main-task 3000 30000)
 ;(Thread/sleep 120000)
 ;(rebalance-bolt "wordcount-dynamic" "wordCountBolt" 4)
 ;(println "=======================thread is starting")
