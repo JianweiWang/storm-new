@@ -100,8 +100,8 @@ public class StormMonitor {
 	public static TBinaryProtocol tBinaryProtocol = null;
 	public static Nimbus.Client client = null;
 	
-	//public String host = "202.117.249.19";
-	public String host = "10.128.12.134";      //default nimbus host
+	public String host = "202.117.249.19";
+	//public String host = "10.128.12.134";      //default nimbus host
 	public int port = 6627;                    //default nimbus port
 	
 	public static CopyOnWriteArraySet<String> jobNames = null;    //job names to monit
