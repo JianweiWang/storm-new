@@ -5,7 +5,7 @@ package wjw.storm.util;
  */
 public class MyTuple {
     private String bname = null;
-    private String capacity = null;
+    private Double capacity = null;
 
     @Override
     public String toString() {
@@ -15,12 +15,12 @@ public class MyTuple {
                 '}' + "\n";
     }
 
-    public MyTuple(String bname,String capacity) {
+    public MyTuple(String bname,Double capacity) {
         this.capacity = capacity;
         this.bname = bname;
     }
 
-    public void setCapacity(String capacity) {
+    public void setCapacity(Double capacity) {
         this.capacity = capacity;
     }
 
@@ -32,7 +32,7 @@ public class MyTuple {
         return bname;
     }
 
-    public String getCapacity() {
+    public double getCapacity() {
         return capacity;
     }
 }

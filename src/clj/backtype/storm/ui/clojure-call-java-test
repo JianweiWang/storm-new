@@ -1,0 +1,8 @@
+(ns wjw.clojure.test
+  (:import [java.util HashMap]
+           [wjw.storm.util StormMonitor MySortedHashMap])
+  (:use backtype.storm.ui.test))
+(def hash-map (HashMap. ))
+(get-bolt-capacity (StormMonitor.) hash-map)
+(def sorted-map (MySortedHashMap. hash-map))
+(.print sorted-map)

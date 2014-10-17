@@ -7,7 +7,7 @@ import java.util.*;
  */
 public class MySortedHashMap {
 
-    private HashMap<String, String> map = null;
+    private HashMap<String, Double> map = null;
     private HashMap<String, List<MyTuple>> sortedMap = new HashMap<String, List<MyTuple>>();
 
     public MySortedHashMap(HashMap map) {
@@ -30,11 +30,13 @@ public class MySortedHashMap {
             List<MyTuple> tmpList = null;
             if (sortedMap.containsKey(tname)) {
                 tmpList = sortedMap.get(tname);
-                tmpList.add(new MyTuple(bname, map.get(key)));
+                tmpList.add(new MyTuple(bname, Double.valueOf(map.get(key))));
             } else {
                 tmpList = new ArrayList<MyTuple>();
                 sortedMap.put(tname, tmpList);
+                //tmpList.add(new MyTuple(bname, Double.valueOf(map.get(key))));
                 tmpList.add(new MyTuple(bname, map.get(key)));
+
             }
         }
     }
@@ -53,6 +55,15 @@ public class MySortedHashMap {
             });
         }
 
+    }
+
+    public void myPrint() {
+        Iterator iterator = sortedMap.values().iterator();
+        Iterator iterator1 = sortedMap.keySet().iterator();
+        while(iterator1.hasNext()) {
+            String key = (String)iterator1.next();
+            System.out.println(key + ": " +sortedMap.get(key));
+        }
     }
 
 

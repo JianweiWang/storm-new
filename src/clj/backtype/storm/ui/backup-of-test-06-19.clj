@@ -13,7 +13,8 @@
             ErrorInfo ClusterSummary SupervisorSummary TopologySummary
             Nimbus$Client StormTopology GlobalStreamId RebalanceOptions
             KillOptions]
-           [java.util List Collection Comparator])
+           [java.util HashMap]
+           [wjw.storm.util MySortedHashMap])
   (:import [wjw.storm.util FilePrinter Test StormMonitor RebalanceInfo]);;added by wjw.  
   )
 
@@ -389,21 +390,20 @@
     (if (= level-flag 1) true false)))
 
 ;;sort the capacity of each bolt in descend order
-(defn sort-capacity [^java.util.List<^java.uitl.Map.Entry<String,String> capacity-list
-                     ^java.util.HashMap<String,String> capacity-map]
-  (let [^java.util.List<^java.uitl.Map.Entry<String,String> capacity-list1 (List.(.entrySet capacity-map))]
-    (.sort Collection capacity-list1 (proxy [Comparator<Map.Entry<String,String>>] []
-
-                                       (compare [^java.util.Map.Entry<String,String> o1
-                                                 ^java.util.Map.Entry<String,String> o2]
-                                         (
-                                           (.compareTo (.valueOf Double (.getValue o2)) (.valueOf Double (.getValue o1)))
-                                           )
-                                         )
-                                       )
-      )
-    )
-)
+;(defn sort-capacity [^java.util.List<^java.uitl.Map.Entry<String,String> capacity-list
+;                     ^java.util.HashMap<String,String> capacity-map]
+ ; (let [^java.util.List<^java.uitl.Map.Entry<String,String> capacity-list1 (List.(.entrySet capacity-map))]
+ ;  (.sort Collection capacity-list1 (proxy [Comparator<Map.Entry<String,String>>] []
+ ;                                      (compare [^java.util.Map.Entry<String,String> o1
+ ;                                                ^java.util.Map.Entry<String,String> o2]
+ ;                                        (
+ ;                                          (.compareTo (.valueOf Double (.getValue o2)) (.valueOf Double (.getValue o1)))
+ ;                                          )
+ ;                                        )
+ ;                                      )
+ ;     )
+ ;   )
+;)
 
 ;;check the usage of each executor to decides whether it needs to be rebalanced and how to be rebalanced.
 (defn do-rebalance []
@@ -422,7 +422,7 @@
               rebalance-info (.get rebalance-info-map topology-name)
               not-checked? (is-not-checked? topology-name)]
         (recur (inc cnt) (if (and not-checked? (not (= bolt-name "sentenceSpout")))
-                           (if  (and (and (> usage 0.7) ((complement =) bolt-name "__acker"))
+                           (if  (and (and (> usage 0.2) ((complement =) bolt-name "__acker")) 
                                      (is-level-avaliable? topology-executor (+ parallism 1)))
                                    ;[^RebalanceInfo rebalance-info topology-name last-parallism current-parallism last-throughput bolt-name]
                                    (let [current-parallism (+ parallism 1)
@@ -435,7 +435,7 @@
                                      )
                                      ;(println "test")))
                                      
-                                   (if (and (and (< usage 0.5) ((complement =) bolt-name "__acker"))
+                                   (if (and (and (< usage 0.1) ((complement =) bolt-name "__acker")) 
                                             (is-level-avaliable? topology-executor (- parallism 1)))
                                      (let [current-parallism (- parallism 1)
                                            topology-throughput (get-throughput-of-topology-by-name topology-name)]
@@ -580,23 +580,17 @@
           ;is-bolt (.isBolt rebalance-info)
           ;rebalance-fun (if is-bolt 'rebalance-bolt )
           ]
-      (if (< (get-bolt-capacity-by-name topology-name bolt-name) 0.1)
-        (println (str topology-name "-" bolt-name "capacity is less than 0.1, skip...."))
-        (if (rebalance-good? rebalance-info)
-          (doto
-            (set-topology-executor-level-map executor-id current-parallism)
-            (unset-rebalancing-flag-map topology-name))
-
-          (doto
-            ;(println "testtesttesttesttesttesttesttesttesttesttesttest")
-            ;(unset-topology-executor-level-map executor-id current-parallism)
-            (wait-and-rebalance rebalance-bolt topology-name bolt-name (- last-parallism 1) last-parallism)
-            ;;TODO rebalance: decrease the parallism
-            ))
-        )
-    )
-  )
-  )
+    (if (rebalance-good? rebalance-info)
+      (let [abc (atom 0)]
+        (set-topology-executor-level-map executor-id current-parallism)
+        (unset-rebalancing-flag-map topology-name))
+           
+      (let [abc (atom 0)]
+        ;(println "testtesttesttesttesttesttesttesttesttesttesttest")
+        ;(unset-topology-executor-level-map executor-id current-parallism)
+        (wait-and-rebalance rebalance-bolt topology-name bolt-name (- last-parallism 1) last-parallism)
+      ;;TODO rebalance: decrease the parallism
+      )))))
 
 (defn my-timer 
   ( [task ^Long time1 ^Long time2]  
@@ -693,8 +687,8 @@
 ;                    (.start (Thread. #(check-rebalance-loop)))
 ;                    (swap! thread-flag not)
 ;                    )))))
-(init-current-bolt-parallism current-bolt-parallism (StormMonitor.))
-(println topology-start-time)
+;(init-current-bolt-parallism current-bolt-parallism (StormMonitor.))
+;(println topology-start-time)
 ;(Thread/sleep 30000)
 ;;(let [tname "wc-100"
 ;;      bname "wordCountBolt"
@@ -702,11 +696,11 @@
  ;; (rebalance-bolt tname bname parallism)
  ;; )
 ;(Thread/sleep 10000)
-(my-timer main-task 3000 30000)
-(Thread/sleep 60000)
+;(my-timer main-task 3000 30000)
+;(Thread/sleep 120000)
 ;(rebalance-bolt "wordcount-dynamic" "wordCountBolt" 4)
-(println "=======================thread is starting")
-(.start (Thread. #(check-rebalance-loop)))
+;(println "=======================thread is starting")
+;(.start (Thread. #(check-rebalance-loop)))
 ;(init-topology-executor-level-map)
 ;(println topology-executor-level-map)
 ;(my-timer sampling-task 20 3000)
@@ -718,3 +712,9 @@
 ;(def testmap (java.util.HashMap.))
 ;(.put testmap "wlw" 23)
 ;(println testmap)
+;;;;;=================================================;;;;;;;;;;;;;;
+;;;;;==================TEST===========================;;;;;;;;;;;;;
+(def capacity-map (HashMap. ))
+(get-bolt-capacity (StormMonitor.) capacity-map)
+(def sorted-map (MySortedHashMap. capacity-map))
+(.myPrint sorted-map)
