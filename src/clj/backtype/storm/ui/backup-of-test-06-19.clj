@@ -13,7 +13,7 @@
             ErrorInfo ClusterSummary SupervisorSummary TopologySummary
             Nimbus$Client StormTopology GlobalStreamId RebalanceOptions
             KillOptions]
-           [java.util HashMap]
+           [java.util HashMap ArrayList]
            [wjw.storm.util MySortedHashMap])
   (:import [wjw.storm.util FilePrinter Test StormMonitor RebalanceInfo]);;added by wjw.  
   )
@@ -71,10 +71,13 @@
 ;;return true if the topology is checked.
 (defn is-not-checked? [topology-name]
   (let [flag (.get rebalancing-flag-map topology-name)]
-    (if (= flag 1) false true )))
+    (if (= flag 1)
+      false
+      true )))
 
 ;;unset the info when a rebalanced topology is checked.
-(defn unset-rebalancing-flag-map [topology-name] 
+(defn unset-rebalancing-flag-map [topology-name]
+  (println "unsetting.................................................")
   (.put rebalancing-flag-map topology-name 0))
 
 ;;key:topology-name value: num of tuple per second
@@ -132,7 +135,8 @@
      ))))
 
 (defn get-bolt-capacity-by-name [tname bname] 
-  (let [topologies (.getTopology (StormMonitor.))
+  (let [sm (StormMonitor.)
+        topologies (.getTopology sm)
         length (.size topologies)
         capacity (atom 0)]
          (loop [cnt 0 acc 1]
@@ -384,7 +388,7 @@
     (update-rebalance-info-map rebalance-info topology-name last-parallism parallism topology-throughput bolt-name work-load)
     (set-rebalancing-flag-map topology-name)
     (.put current-bolt-parallism (str topology-name "-" bolt-name) parallism)
-    (println  (str "capacity: " (get-bolt-capacity-by-name topology-name bolt-name)))
+    ;(println  (str "capacity: " (get-bolt-capacity-by-name topology-name bolt-name)))
     (fun topology-name bolt-name parallism)    
     ;(println current-bolt-parallism)
    ; (println "printing current-bolt-parallism done.")
@@ -415,18 +419,20 @@
 ;)
 
 (defn is-bolt? [tname bname]
-  (if (.containsKey is-bolt-map (str tanme "-" bname))
+  (if (.containsKey is-bolt-map (str tname "-" bname))
      true
      false))
 
 ;;check the usage of each executor to decides whether it needs to be rebalanced and how to be rebalanced.
-(defn do-rebalance []
+(defn do-rebalance-descend-order []
   (let [capacity-map (HashMap.)]
     (get-bolt-capacity (StormMonitor.) capacity-map)
-    (let [my-sorted-capacity-map (.getSortedMap (MySortedHashMap.  capacity-map))
-          my-keys (.keySet my-sorted-capacity-map)
+    (let [my-sorted-hashmap (MySortedHashMap.  capacity-map)
+          my-sorted-capacity-map (.getSortedMap my-sorted-hashmap)
+          my-keys (ArrayList. (.keySet my-sorted-capacity-map))
           map-size (.size my-sorted-capacity-map)
-          parallism (.get current-bolt-parallism topology-executor)]
+          ]
+      (.myPrint my-sorted-hashmap)
       (loop [cnt 0 acc 1]
         (if (< cnt map-size)
           (recur (inc cnt)
@@ -437,34 +443,39 @@
                   rebalance-info (.get rebalance-info-map tname)
                   not-checked? (is-not-checked? tname)]
               (loop [cnt1 0 acc 1]
-                (if (< cnt1 bolt-size)
+                (if (and not-checked? (< cnt1 bolt-size))
                   (let [my-tuple (.get bolt-list cnt1)
-                        bname (.getBoltName my-tuple)
-                        capacity (.getCapacity my-tuple)]
-                    (recur (inc cnt) (if (and not-checked? (is-bolt? tname bname))
-                                       (if  (and (and (> usage 0.2) ((complement =) bolt-name "__acker"))
+                        bname (.getBname my-tuple)
+                        capacity (.getCapacity my-tuple)
+                        topology-executor (str tname "-" bname)
+                        parallism (.get current-bolt-parallism topology-executor)
+                        a-for-nothing (println topology-executor)]
+                    (recur (inc cnt1)
+                      (if not-checked?
+                        (if (is-bolt? tname bname)
+                                       (if  (and (and (> capacity 0.3) ((complement =) bname "__acker"))
                                               (is-level-avaliable? topology-executor (+ parallism 1)))
                                          ;[^RebalanceInfo rebalance-info topology-name last-parallism current-parallism last-throughput bolt-name]
                                          (let [current-parallism (+ parallism 1)
-                                               topology-throughput (get-throughput-of-topology-by-name topology-name)]
+                                               topology-throughput (get-throughput-of-topology-by-name tname)]
                                            ;(update-rebalance-info-map rebalance-info topology-name parallism current-parallism topology-throughput bolt-name)
                                            (println "1:go into wait-and-rebalance.....")
                                            (println topology-executor)
-                                           (println (str "1:usage: " usage ))
-                                           (wait-and-rebalance rebalance-bolt topology-name bolt-name parallism (+ parallism 1))
+                                           (println (str "1:usage: " capacity ))
+                                           (wait-and-rebalance rebalance-bolt tname bname parallism (+ parallism 1))
                                            )
                                          ;(println "test")))
 
-                                         (if (and (and (< usage 0.1) ((complement =) bolt-name "__acker"))
+                                         (if (and (and (< capacity 0.1) ((complement =) bname "__acker"))
                                                (is-level-avaliable? topology-executor (- parallism 1)))
                                            (let [current-parallism (- parallism 1)
-                                                 topology-throughput (get-throughput-of-topology-by-name topology-name)]
+                                                 topology-throughput (get-throughput-of-topology-by-name tname)]
                                              ;[^RebalanceInfo rebalance-info topology-name last-parallism current-parallism last-throughput bolt-name]
                                              ;(update-rebalance-info-map rebalance-info topology-name parallism current-parallism topology-throughput bolt-name)
                                              (println "2:go into wait-and-rebalance.....")
                                              (println topology-executor)
-                                             (println (str "2:usage: " usage ))
-                                             (wait-and-rebalance rebalance-bolt topology-name bolt-name parallism (- parallism 1))
+                                             (println (str "2:usage: " capacity ))
+                                             (wait-and-rebalance rebalance-bolt tname bname parallism (- parallism 1))
                                              ;(println current-bolt-parallism)
                                              ;(println topology-executor)
                                              ; (println parallism)
@@ -484,7 +495,7 @@
       )
     )
 
-  )
+  ))
 
 (defn do-rebalance []
   (let [map-length (.size topology-executor-map)
@@ -660,17 +671,25 @@
           ;is-bolt (.isBolt rebalance-info)
           ;rebalance-fun (if is-bolt 'rebalance-bolt )
           ]
-    (if (rebalance-good? rebalance-info)
-      (let [abc (atom 0)]
-        (set-topology-executor-level-map executor-id current-parallism)
-        (unset-rebalancing-flag-map topology-name))
-           
-      (let [abc (atom 0)]
-        ;(println "testtesttesttesttesttesttesttesttesttesttesttest")
-        ;(unset-topology-executor-level-map executor-id current-parallism)
-        (wait-and-rebalance rebalance-bolt topology-name bolt-name (- last-parallism 1) last-parallism)
-      ;;TODO rebalance: decrease the parallism
-      )))))
+      (if (< (get-bolt-capacity-by-name topology-name bolt-name) 0.1)
+        (doto
+          (println (str topology-name "-" bolt-name ", skipped......"))
+          (unset-rebalancing-flag-map topology-name)
+          )
+        (if (rebalance-good? rebalance-info)
+          (let [abc (atom 0)]
+            (set-topology-executor-level-map executor-id current-parallism)
+            (unset-rebalancing-flag-map topology-name)
+            )
+
+          (let [abc (atom 0)]
+            ;(println "testtesttesttesttesttesttesttesttesttesttesttest")
+            ;(unset-topology-executor-level-map executor-id current-parallism)
+            (wait-and-rebalance rebalance-bolt topology-name bolt-name (- last-parallism 1) last-parallism)
+            ;;TODO rebalance: decrease the parallism
+            ))
+        )
+    )))
 
 (defn my-timer 
   ( [task ^Long time1 ^Long time2]  
@@ -680,6 +699,7 @@
     (.schedule (new java.util.Timer) task time)))
 ;;rebalance
 (defn check-rebalance-loop []
+  (println "topology-executor-level-map=========================")
   (println topology-executor-level-map)
   (while true
     (do
@@ -716,10 +736,11 @@
   ;(println  executor-topology-map)
   (println "-------------------capacity of each bolt---------------------------")
   (println topology-executor-map)
-  (do-rebalance)
+
   (get-throughput-of-topology sm)
   (println "-------------------throughput of each topology---------------------------")
   (println topology-throughput-map)
+  (do-rebalance-descend-order )
   ;(println )
   ;(def file-writer (java.io.FileWriter. "/root/storm/storm_experiment/workload_and_throughput.txt" true))
   ;(def throughput (str "throughput: " (int (get-throughput-of-topology-by-name "wc-100"))  "\n"))
@@ -767,8 +788,11 @@
 ;                    (.start (Thread. #(check-rebalance-loop)))
 ;                    (swap! thread-flag not)
 ;                    )))))
-;(init-current-bolt-parallism current-bolt-parallism (StormMonitor.))
-;(println topology-start-time)
+
+
+
+(init-current-bolt-parallism current-bolt-parallism (StormMonitor.))
+(println topology-start-time)
 ;(Thread/sleep 30000)
 ;;(let [tname "wc-100"
 ;;      bname "wordCountBolt"
@@ -776,11 +800,14 @@
  ;; (rebalance-bolt tname bname parallism)
  ;; )
 ;(Thread/sleep 10000)
-;(my-timer main-task 3000 30000)
-;(Thread/sleep 120000)
+;(init-topology-executor-level-map)
+(my-timer main-task 3000 30000)
+(Thread/sleep 60000)
 ;(rebalance-bolt "wordcount-dynamic" "wordCountBolt" 4)
-;(println "=======================thread is starting")
-;(.start (Thread. #(check-rebalance-loop)))
+(println "=======================thread is starting")
+(.start (Thread. #(check-rebalance-loop)))
+
+
 ;(init-topology-executor-level-map)
 ;(println topology-executor-level-map)
 ;(my-timer sampling-task 20 3000)
@@ -794,7 +821,9 @@
 ;(println testmap)
 ;;;;;=================================================;;;;;;;;;;;;;;
 ;;;;;==================TEST===========================;;;;;;;;;;;;;
-(def capacity-map (HashMap. ))
-(get-bolt-capacity (StormMonitor.) capacity-map)
-(def sorted-map (MySortedHashMap. capacity-map))
-(.myPrint sorted-map)
+;(def capacity-map (HashMap. ))
+;(get-bolt-capacity (StormMonitor.) capacity-map)
+;(def sorted-map (MySortedHashMap. capacity-map))
+;(.myPrint sorted-map)
+;(unset-rebalancing-flag-map "wjw")
+;(println rebalancing-flag-map)
