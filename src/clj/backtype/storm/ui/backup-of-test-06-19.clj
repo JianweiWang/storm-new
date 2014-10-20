@@ -389,7 +389,7 @@
     (set-rebalancing-flag-map topology-name)
     (.put current-bolt-parallism (str topology-name "-" bolt-name) parallism)
     ;(println  (str "capacity: " (get-bolt-capacity-by-name topology-name bolt-name)))
-    (fun topology-name bolt-name parallism)    
+    (fun topology-name bolt-name parallism)
     ;(println current-bolt-parallism)
    ; (println "printing current-bolt-parallism done.")
    )  
@@ -441,14 +441,16 @@
                   bolt-list (.get my-sorted-capacity-map tname)
                   bolt-size (.size bolt-list)
                   rebalance-info (.get rebalance-info-map tname)
-                  not-checked? (is-not-checked? tname)]
+                  ]
               (loop [cnt1 0 acc 1]
-                (if (and not-checked? (< cnt1 bolt-size))
+                (if (and true (< cnt1 bolt-size))
                   (let [my-tuple (.get bolt-list cnt1)
                         bname (.getBname my-tuple)
                         capacity (.getCapacity my-tuple)
                         topology-executor (str tname "-" bname)
                         parallism (.get current-bolt-parallism topology-executor)
+                        not-checked? (is-not-checked? tname)
+                        just-test (println (str "not-checked?: " not-checked? ))
                         a-for-nothing (println topology-executor)]
                     (recur (inc cnt1)
                       (if not-checked?
@@ -619,7 +621,7 @@
 ;;check if the capacity of a bolt is nomal.If it is large, the function will return 1.Else if it is small, the function will return -1.If it is nomal, the function will return 0.
 (defn is-capacity-nomal? [capacity]
   (let [flag (atom 0)]
-    (if (> capacity 0.2) (swap! flag swap 1)
+    (if (> capacity 0.3) (swap! flag swap 1)
       (if (< capacity 0.1) (swap! flag swap -1)
         (swap! flag swap 0)))
     @flag))
@@ -672,7 +674,7 @@
           ;rebalance-fun (if is-bolt 'rebalance-bolt )
           ]
       (if (< (get-bolt-capacity-by-name topology-name bolt-name) 0.1)
-        (doto
+        (let [abc 0]
           (println (str topology-name "-" bolt-name ", skipped......"))
           (unset-rebalancing-flag-map topology-name)
           )
@@ -708,7 +710,7 @@
               rebalance-time (.getRebalancingTime rebalance-info)
               current-time (System/currentTimeMillis)
               delta (- current-time rebalance-time)
-              delta (- 300000 delta)
+              delta (- 600000 delta)
               delay (if (>= delta 0) delta 0)]
           ;(println "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
           ;(println rebalance-info)

@@ -52,7 +52,8 @@ public class SamplingThread implements Runnable{
 					}
 					
 				}			
-			}		
+			}
+            sm = null;
 		}
 	}
 

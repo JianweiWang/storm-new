@@ -1,4 +1,4 @@
-package com.wjw.timer.test;
+package wjw.strom.related.test;
 
 import java.util.Timer;
 import java.util.TimerTask;
