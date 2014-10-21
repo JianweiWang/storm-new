@@ -15,7 +15,8 @@
             KillOptions]
            [java.util HashMap ArrayList]
            [wjw.storm.util MySortedHashMap MySingletonThread SamplingThread]
-           [backtype.storm.utils Utils])
+           [backtype.storm.utils Utils]
+           [java.util.concurrent ConcurrentHashMap])
   (:import [wjw.storm.util FilePrinter Test StormMonitor RebalanceInfo]);;added by wjw.  
   )
 
@@ -65,6 +66,31 @@
 ;; key: topology-name, value:1 or 0. 1 represents that the topology has been rebalanced but not checked if rebalance is good; 0 
 ;; represents that it has been checked.
 (def rebalancing-flag-map (java.util.concurrent.ConcurrentHashMap.))
+
+;;parallism to real parallism
+(def para-to-real-para (ConcurrentHashMap.))
+
+;;init para-to-real-para
+(defn init-para-to-real-para []
+  (.put para-to-real-para 1 1)
+  (.put para-to-real-para 2 2)
+  (.put para-to-real-para 3 4)
+  (.put para-to-real-para 4 7)
+  (.put para-to-real-para 5 11)
+  (.put para-to-real-para 6 16))
+
+;;-real-parallism to parallism
+(def real-para-to-para (ConcurrentHashMap.))
+
+;;init real-para-to-para
+(defn init-real-para-to-para []
+  (.put real-para-to-para 1 1)
+  (.put real-para-to-para 2 2)
+  (.put real-para-to-para 4 3)
+  (.put real-para-to-para 7 4)
+  (.put real-para-to-para 11 5)
+  (.put real-para-to-para 16 6))
+
 
 ;;set info when a topology is rebalanced.
 (defn set-rebalancing-flag-map [topology-name]
@@ -472,28 +498,35 @@
                       (if not-checked?
                         (if (is-bolt? tname bname)
                                        (if  (and (and (> capacity 0.2) ((complement =) bname "__acker"))
-                                              (is-level-avaliable? topology-executor (+ parallism 1)))
+                                              ;(is-level-avaliable? topology-executor (+ parallism 1))
+                                              (is-level-avaliable? topology-executor (.get para-to-real-para (+ (.get real-para-to-para parallism) 1)))
+                                              )
                                          ;[^RebalanceInfo rebalance-info topology-name last-parallism current-parallism last-throughput bolt-name]
-                                         (let [current-parallism (+ parallism 1)
+                                         (let [;current-parallism (+ parallism 1)
+                                               current-parallism (.get para-to-real-para (+ (.get real-para-to-para parallism) 1))
                                                topology-throughput (get-throughput-of-topology-by-name tname)]
                                            ;(update-rebalance-info-map rebalance-info topology-name parallism current-parallism topology-throughput bolt-name)
                                            (println "1:go into wait-and-rebalance.....")
                                            (println topology-executor)
                                            (println (str "1:usage: " capacity ))
-                                           (wait-and-rebalance rebalance-bolt tname bname parallism (+ parallism 1))
+                                           ;(wait-and-rebalance rebalance-bolt tname bname parallism (+ parallism 1))
+                                           (wait-and-rebalance rebalance-bolt tname bname parallism current-parallism)
                                            )
                                          ;(println "test")))
 
                                          (if (and (and (< capacity 0.1) ((complement =) bname "__acker"))
-                                               (is-level-avaliable? topology-executor (- parallism 1)))
-                                           (let [current-parallism (- parallism 1)
+                                               ;(is-level-avaliable? topology-executor (- parallism 1))
+                                               (is-level-avaliable? topology-executor (.get para-to-real-para (- (.get real-para-to-para parallism) 1)))
+                                               )
+                                           (let [;current-parallism (- parallism 1)
+                                                 current-parallism (.get para-to-real-para (- (.get real-para-to-para parallism) 1))
                                                  topology-throughput (get-throughput-of-topology-by-name tname)]
                                              ;[^RebalanceInfo rebalance-info topology-name last-parallism current-parallism last-throughput bolt-name]
                                              ;(update-rebalance-info-map rebalance-info topology-name parallism current-parallism topology-throughput bolt-name)
                                              (println "2:go into wait-and-rebalance.....")
                                              (println topology-executor)
                                              (println (str "2:usage: " capacity ))
-                                             (wait-and-rebalance rebalance-bolt tname bname parallism (- parallism 1))
+                                             (wait-and-rebalance rebalance-bolt tname bname parallism (.get para-to-real-para (- (.get real-para-to-para parallism) 1)))
                                              ;(println current-bolt-parallism)
                                              ;(println topology-executor)
                                              ; (println parallism)
@@ -703,7 +736,8 @@
           (let [abc (atom 0)]
             ;(println "testtesttesttesttesttesttesttesttesttesttesttest")
             ;(unset-topology-executor-level-map executor-id current-parallism)
-            (wait-and-rebalance rebalance-bolt topology-name bolt-name (- last-parallism 1) last-parallism)
+            ;(wait-and-rebalance rebalance-bolt topology-name bolt-name (- last-parallism 1) last-parallism)
+            (wait-and-rebalance rebalance-bolt topology-name bolt-name current-parallism last-parallism)
             ;;TODO rebalance: decrease the parallism
             ))
         )
@@ -813,7 +847,8 @@
 ;                    )))))
 
 
-
+(init-para-to-real-para);
+(init-real-para-to-para);
 (init-current-bolt-parallism current-bolt-parallism (StormMonitor.))
 (println topology-start-time)
 ;(Thread/sleep 30000)
