@@ -44,7 +44,7 @@ public class MyTimerTest  {
             }
 
         });
-        thread.start();
+       // thread.start();
         //thread1.start();
         Timer timer = new Timer();
         MyTask myTask = new MyTask(myCounter);
@@ -59,7 +59,12 @@ class  MyTask extends TimerTask {
     }
     @Override
     public void run() {
-        System.out.println(myCounter.get_count());
+        (new Thread(new Runnable() {
+            @Override
+            public void run() {
+                System.out.println("hello");
+            }
+        })).start();
     }
 }
 

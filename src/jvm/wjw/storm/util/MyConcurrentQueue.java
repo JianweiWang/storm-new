@@ -1,6 +1,6 @@
 package wjw.storm.util;
 
-public class MyConcurrentQueue {
+public class MyConcurrentQueue <T> {
 	private Double[] array;
 	private int head,tail;
 	private int size = 0;

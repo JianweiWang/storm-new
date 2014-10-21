@@ -17,6 +17,16 @@ public class MyUtils {
 		return average;
 	}
 
+    public static long sum(Collection<Long> collection) {
+        int size = collection.size();
+        long sum = 0;
+        Iterator iterator = collection.iterator();
+        while(iterator.hasNext()) {
+            sum = sum + (Long) iterator.next();
+        }
+        return sum;
+    }
+
     public static void sortHashMap(List resultList, HashMap sourceMap) {
         List tmpList = new ArrayList(sourceMap.entrySet());
         HashMap tmpMap = new HashMap();

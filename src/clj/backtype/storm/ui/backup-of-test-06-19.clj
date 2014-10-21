@@ -14,7 +14,8 @@
             Nimbus$Client StormTopology GlobalStreamId RebalanceOptions
             KillOptions]
            [java.util HashMap ArrayList]
-           [wjw.storm.util MySortedHashMap])
+           [wjw.storm.util MySortedHashMap MySingletonThread SamplingThread]
+           [backtype.storm.utils Utils])
   (:import [wjw.storm.util FilePrinter Test StormMonitor RebalanceInfo]);;added by wjw.  
   )
 
@@ -50,6 +51,7 @@
      (.put level-map level 1)
     (.put topology-executor-level-map executor-id level-map))
   )
+
 
 ;;unset topology-executor-level-map
 (defn unset-topology-executor-level-map [executor-id level]
@@ -220,9 +222,15 @@
 (defn rebalance-bolt [topology-name bolt-name bolt-parallism]
   (if (and (> bolt-parallism 0) (< bolt-parallism 16)) 
     ;(println (str topology-name "-" bolt-name " is rebalancing to " bolt-parallism))
-    (let [current-time (System/currentTimeMillis)]
+    (let [current-time (System/currentTimeMillis)
+          thread  (MySingletonThread/getThread (SamplingThread.))]
+      ;(.stop thread)
+      ;(Thread/sleep 1)
       (rebalance "-w" "0" topology-name  "-e" (str bolt-name "=" bolt-parallism))
       (.put topology-start-time topology-name current-time)
+      ;(Thread/sleep 30000)
+      ;(println "======================================sampling......==============================")
+     ; (.start thread)
       ;(println "rebalance is done.")
     ))
   )
@@ -384,12 +392,20 @@
 (defn wait-and-rebalance [fun topology-name bolt-name last-parallism parallism]
   (let [topology-throughput (get-throughput-of-topology-by-name topology-name)
         work-load (get-workload-of-topology-by-name topology-name)
-        rebalance-info (.get rebalance-info-map topology-name)]
+        rebalance-info (.get rebalance-info-map topology-name)
+        ;thread  (MySingletonThread/getThread (SamplingThread.))
+        ]
     (update-rebalance-info-map rebalance-info topology-name last-parallism parallism topology-throughput bolt-name work-load)
     (set-rebalancing-flag-map topology-name)
     (.put current-bolt-parallism (str topology-name "-" bolt-name) parallism)
     ;(println  (str "capacity: " (get-bolt-capacity-by-name topology-name bolt-name)))
+    ;(.interrupt thread)
     (fun topology-name bolt-name parallism)
+    ;(Thread/sleep 3000)
+    ;(println "******************start sampling...*********************")
+    ;(println thread)
+    ;(.start thread)
+    ;(println "******************sampling***********************")
     ;(println current-bolt-parallism)
    ; (println "printing current-bolt-parallism done.")
    )  
@@ -455,7 +471,7 @@
                     (recur (inc cnt1)
                       (if not-checked?
                         (if (is-bolt? tname bname)
-                                       (if  (and (and (> capacity 0.3) ((complement =) bname "__acker"))
+                                       (if  (and (and (> capacity 0.2) ((complement =) bname "__acker"))
                                               (is-level-avaliable? topology-executor (+ parallism 1)))
                                          ;[^RebalanceInfo rebalance-info topology-name last-parallism current-parallism last-throughput bolt-name]
                                          (let [current-parallism (+ parallism 1)
@@ -729,7 +745,11 @@
 ;  )
 (def init-flag 0)
 ;;main
-(defn main-test [] 
+(defn main-test []
+  ;(let  [thread (MySingletonThread/getThread (SamplingThread.))]
+  ;  (if (not (.isAlive thread))
+  ;    (.start thread))
+  ;  )
   (def sm (StormMonitor.))
   (println "-------------------parallism of each bolt---------------------------")
   (println current-bolt-parallism)
@@ -743,6 +763,7 @@
   (println "-------------------throughput of each topology---------------------------")
   (println topology-throughput-map)
   (do-rebalance-descend-order )
+  (def sm nil)
   ;(println )
   ;(def file-writer (java.io.FileWriter. "/root/storm/storm_experiment/workload_and_throughput.txt" true))
   ;(def throughput (str "throughput: " (int (get-throughput-of-topology-by-name "wc-100"))  "\n"))
@@ -805,6 +826,7 @@
 ;(init-topology-executor-level-map)
 (my-timer main-task 3000 30000)
 (Thread/sleep 60000)
+;(.start (MySingletonThread/getThread (SamplingThread.)))
 ;(rebalance-bolt "wordcount-dynamic" "wordCountBolt" 4)
 (println "=======================thread is starting")
 (.start (Thread. #(check-rebalance-loop)))
