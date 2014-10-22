@@ -93,24 +93,24 @@ import backtype.storm.generated.TopologySummary;
 
 public class StormMonitor {
 
-	public static Logger LOG = Logger.getLogger(StormMonitor.class);    
+	public  Logger LOG = Logger.getLogger(StormMonitor.class);
 	
-	public static TSocket tsocket = null;
-	public static TFramedTransport tTransport = null;
-	public static TBinaryProtocol tBinaryProtocol = null;
-	public static Nimbus.Client client = null;
+	public  TSocket tsocket = null;
+	public  TFramedTransport tTransport = null;
+	public  TBinaryProtocol tBinaryProtocol = null;
+	public  Nimbus.Client client ;
 	
-	public String host = "202.117.249.19";
+	public static  String host = "202.117.249.19";
 	//public String host = "10.128.12.134";      //default nimbus host
-	public int port = 6627;                    //default nimbus port
+	public static int port = 6627;                    //default nimbus port
 	
-	public static CopyOnWriteArraySet<String> jobNames = null;    //job names to monit
+	public  CopyOnWriteArraySet<String> jobNames = null;    //job names to monit
 	
 //	public static TimerScheduler ts = null;
 	
 	
 	public StormMonitor(){
-		new StormMonitor(host, port);
+		this (host, port);
 	}
 	
 	public StormMonitor(String nimbusHost, int nimbusPort){
@@ -118,6 +118,7 @@ public class StormMonitor {
 		tTransport = new TFramedTransport(tsocket);
 		tBinaryProtocol = new TBinaryProtocol(tTransport);
 		client = new Nimbus.Client(tBinaryProtocol);
+        //System.out.println(client);
 		try {
 			tTransport.open();
 		} catch (TTransportException e) {
@@ -138,15 +139,14 @@ public class StormMonitor {
 	 * @param : name topology name
 	 * @return : topology id
 	 */
-	public static String getTopologyId(String name) {
+	public  String getTopologyId(String name) {
 		if (name == null)
 			return null;
         try {
         	ClusterSummary summary = client.getClusterInfo();
         	
             for(TopologySummary s : summary.get_topologies()) {
-                if(s.get_name().equals(name)) {  
-                	
+                if(s.get_name().equals(name)) {
                 	String id = s.get_id();
                 	LOG.info("Topology " + name + " exists ! " + "id : " + id);
                     return id;
@@ -158,18 +158,58 @@ public class StormMonitor {
         LOG.info("Topology " + name + " not exists ! ");
         return null;
     }
-	
+
+    public int getWorkerNum(String name) {
+        if (name == null)
+            return 0;
+        try {
+            ClusterSummary summary = client.getClusterInfo();
+
+            for(TopologySummary s : summary.get_topologies()) {
+                if(s.get_name().equals(name)) {
+                    return s.get_num_workers();
+                }
+            }
+        } catch(Exception e) {
+            throw new RuntimeException(e);
+        }
+        LOG.info("Topology " + name + " not exists ! ");
+        return 0;
+    }
+
+    public int getExecutorNum(String name) {
+        if (name == null)
+            return 0;
+        try {
+            ClusterSummary summary = client.getClusterInfo();
+
+            for(TopologySummary s : summary.get_topologies()) {
+                if(s.get_name().equals(name)) {
+                    return s.get_num_executors();
+                }
+            }
+        } catch(Exception e) {
+            throw new RuntimeException(e);
+        }
+        LOG.info("Topology " + name + " not exists ! ");
+        return 0;
+    }
+
 	public  List<TopologyInfo> getTopology() {
 		List<TopologyInfo> topologyInfos = new ArrayList<TopologyInfo>();
         try {
+            //System.out.print(client);
         	ClusterSummary summary = client.getClusterInfo();
+
+
             for(TopologySummary s : summary.get_topologies()) {
             	String id = s.get_id();
             	TopologyInfo ti = client.getTopologyInfo(id);
             	topologyInfos.add(ti);
                 }   
         } catch(Exception e) {
-            throw new RuntimeException(e);
+            //throw new RuntimeException(e);
+            e.printStackTrace();
         }
         
         	return topologyInfos;
@@ -179,7 +219,7 @@ public class StormMonitor {
 		tTransport.close();
 	}
 	
-	public static ArrayList<String> getTopologyIds(String[] names){
+	public  ArrayList<String> getTopologyIds(String[] names){
 		ArrayList<String> rs = new ArrayList<String>();
 		for (String name : names){
 			rs.add(getTopologyId(name));
@@ -190,7 +230,7 @@ public class StormMonitor {
 	/*
 	 * stastic the topology info
 	 */
-	public static HashMap<String, ArrayList<String>> stasticTopologyInfo(String topologyId){
+	public  HashMap<String, ArrayList<String>> stasticTopologyInfo(String topologyId){
 		if (topologyId == null){
 			LOG.warn("Topology id is null !");
 			return null;
@@ -280,7 +320,7 @@ public class StormMonitor {
 	
 	public ExecutorSummary  getExecutor() throws InterruptedException{
 		//StormMonitor m = new StormMonitor();
-					List<TopologyInfo> ti = this.getTopology();
+					List<TopologyInfo> ti = getTopology();
 					//System.out.println(ti);
 					int i = 0;
 					while(i < ti.size())
@@ -344,6 +384,7 @@ public class StormMonitor {
 	}
 	public static void main(String[] args) throws InterruptedException{
 		StormMonitor m = new StormMonitor();
+        System.out.println(m.client.toString());
 		System.out.println(m.getExecutor());
 		/*List<TopologyInfo> ti = m.getTopology();
 					int i = 0;

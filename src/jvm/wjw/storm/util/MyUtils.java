@@ -27,6 +27,17 @@ public class MyUtils {
         return sum;
     }
 
+    public static String getString(HashMap h) {
+        String result = "[";
+        Iterator<String> iterator = h.keySet().iterator();
+        while(iterator.hasNext()) {
+            String key = iterator.next();
+            result += ("\t|\t" + key + "\t|\t" + h.get(key));
+        }
+        result += "\t]";
+        return result;
+    }
+
     public static void sortHashMap(List resultList, HashMap sourceMap) {
         List tmpList = new ArrayList(sourceMap.entrySet());
         HashMap tmpMap = new HashMap();
@@ -46,6 +57,10 @@ public class MyUtils {
             }
         });
 
+    }
+
+    public static int getWorkerSize(StormMonitor sm) {
+        return
     }
 
 

@@ -12,11 +12,11 @@ import java.util.HashMap;
  */
 public class SingletonTest {
     public static void main(String[] args) {
-        Thread thread = MySingletonThread.getThread(new SamplingThread());
-        Thread thread1 = MySingletonThread.getThread(new SamplingThread());
+       // Thread thread = MySingletonThread.getThread(new SamplingThread());
+       // Thread thread1 = MySingletonThread.getThread(new SamplingThread());
        // thread.start();
-        thread1.stop();
-        Utils.sleep(300L);
-        System.out.println(thread1.isAlive());
+        //thread1.stop();
+       // Utils.sleep(300L);
+        //System.out.println(thread1.isAlive());
     }
 }

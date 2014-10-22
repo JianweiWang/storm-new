@@ -14,7 +14,7 @@ public class FilePrinter {
 //		backtype.storm.ui.core.getExecutorCapacity();
 //	}
 	
-	public void print(Object obj) throws Exception {
+	public synchronized void  print(Object obj) throws Exception {
 		FileWriter fw = null;
 		if(filePath != null) {
 			File file = new File(filePath);

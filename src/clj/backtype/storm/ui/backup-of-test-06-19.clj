@@ -13,15 +13,16 @@
             ErrorInfo ClusterSummary SupervisorSummary TopologySummary
             Nimbus$Client StormTopology GlobalStreamId RebalanceOptions
             KillOptions]
-           [java.util HashMap ArrayList]
-           [wjw.storm.util MySortedHashMap MySingletonThread SamplingThread]
+           [java.util HashMap ArrayList Calendar]
+           [wjw.storm.util MySortedHashMap MySingletonThread SamplingThread MyUtils]
            [backtype.storm.utils Utils]
-           [java.util.concurrent ConcurrentHashMap])
+           [java.util.concurrent ConcurrentHashMap]
+           [java.text SimpleDateFormat])
   (:import [wjw.storm.util FilePrinter Test StormMonitor RebalanceInfo]);;added by wjw.  
   )
 
 (defn swap [a b] (+ 0 b))
-
+(def filePrinter nil)
 ;判断给定的executor是否需要rebalance，目前的方法非常简单，当capacity > 0.75时 返回true，否则返回false。
 (defn need-adapt? [^ExecutorSummary e](
 ))
@@ -244,22 +245,7 @@
           )
   )
   ))
-;; rebalance bolt
-(defn rebalance-bolt [topology-name bolt-name bolt-parallism]
-  (if (and (> bolt-parallism 0) (< bolt-parallism 16)) 
-    ;(println (str topology-name "-" bolt-name " is rebalancing to " bolt-parallism))
-    (let [current-time (System/currentTimeMillis)
-          thread  (MySingletonThread/getThread (SamplingThread.))]
-      ;(.stop thread)
-      ;(Thread/sleep 1)
-      (rebalance "-w" "0" topology-name  "-e" (str bolt-name "=" bolt-parallism))
-      (.put topology-start-time topology-name current-time)
-      ;(Thread/sleep 30000)
-      ;(println "======================================sampling......==============================")
-     ; (.start thread)
-      ;(println "rebalance is done.")
-    ))
-  )
+
 
 ;; rebalance worker
 (defn rebalance-worker [topology-name worker-num]
@@ -320,36 +306,40 @@
                      topology-name (.get_name topology)
                      ]
                  ;(println topology-name)
-                 (if (= tname topology-name) 
+                 (if (= tname topology-name)
+                   (let [work-load-all-executors (ArrayList.)]
                    (loop [cnt1 0 acc 1] 
                    (if(< cnt1 executor-size)
                      (recur (inc cnt1 )
                        (let [executor (.get executors  cnt1 )
                              component-id (.get_component_id executor)
                              stats (.get_stats executor)
-                             specifics (.get_specific stats)]
+                             specifics (.get_specific stats)
+                            ]
                         ; (println "test")
                          (if (.is_set_spout specifics)
                         ;   (println component-id)
 ;                             (println specifics)
-                            (let [start-time-secs (int (/ (.get topology-start-time topology-name) 1000))
-                                  current-time-ses (int (/ (System/currentTimeMillis) 1000))
-                                  uptime-secs (- current-time-ses start-time-secs)
-                                  uptime-secs (inc uptime-secs)
-                                  ;uptime-secs (.get_uptime_secs topology)
+                            (let [;start-time-secs (int (/ (.get topology-start-time topology-name) 1000))
+                                  ;current-time-ses (int (/ (System/currentTimeMillis) 1000))
+                                  ;uptime-secs (- current-time-ses start-time-secs)
+                                  ;uptime-secs (inc uptime-secs)
+                                  uptime-secs (.get_uptime_secs executor)
                                   transferred (.get_transferred stats)
                                   transferred_600 (.get transferred "600")
                                   values (.values transferred_600)
-                                  work-load-total (apply + values )] 
+                                  work-load-total (apply + values )]
+                              (.add work-load-all-executors work-load-total)
                               (println (str"uptime: " uptime-secs))
                               
-                              (if (< uptime-secs 600)
-                                (swap! work-load swap (/ work-load-total uptime-secs))
-                                (swap! work-load swap (/ work-load-total 600)))
+                              (let [all (apply + work-load-all-executors)]
+                                (if (< uptime-secs 600)
+                                (swap! work-load swap (/ all uptime-secs))
+                                (swap! work-load swap (/ all 600))))
                               )
                              
                            
-                           )))))))))) @work-load ))
+                           ))))))))))) @work-load ))
 
 ;;get the throughput of a toplogy by topology-name
 (defn get-throughput-of-topology-by-name [tname]
@@ -369,37 +359,67 @@
                      topology-name (.get_name topology)
                      ]
                  ;(println topology-name)
-                 (if (= tname topology-name) 
-                   (loop [cnt1 0 acc 1] 
-                   (if(< cnt1 executor-size)
-                     (recur (inc cnt1 )
-                       (let [executor (.get executors  cnt1 )
-                             component-id (.get_component_id executor)
-                             stats (.get_stats executor)
-                             specifics (.get_specific stats)]
-                        ; (println "test")
-                         (if (.is_set_spout specifics)
-                        ;   (println component-id)
-;                             (println specifics)
-                            (let [start-time-secs (int (/ (.get topology-start-time topology-name) 1000))
-                                  current-time-ses (int (/ (System/currentTimeMillis) 1000))
-                                  uptime-secs (- current-time-ses start-time-secs)
-                                  uptime-secs (inc uptime-secs)
-                                  ;uptime-secs (.get_uptime_secs topology)
-                                  spout_stats (.get_spout specifics)
-                                  acked (.get_acked spout_stats)
-                                  acked_600 (.get acked "600")
-                                  values (.values acked_600)
-                                  throughput-total (apply + values )] 
-                              (println (str"uptime: " uptime-secs))
-                              
-                              (if (< uptime-secs 600)
-                                (swap! throughput swap (/ throughput-total uptime-secs))
-                                (swap! throughput swap (/ throughput-total 600)))
-                              )
-                             
-                           
-                           )))))) )))) @throughput ))
+                 (if (= tname topology-name)
+                   (let [throughput-all-executors (ArrayList.)]
+                   (loop [cnt1 0 acc 1]
+
+                       (if (< cnt1 executor-size)
+                         (recur (inc cnt1)
+                           (let [executor (.get executors cnt1)
+                                 component-id (.get_component_id executor)
+                                 stats (.get_stats executor)
+                                 specifics (.get_specific stats)
+
+                                 ]
+                             ; (println "test")
+                             (if (.is_set_spout specifics)
+                               ;   (println component-id)
+                               ;                             (println specifics)
+                               (let [;start-time-secs (int (/ (.get topology-start-time topology-name) 1000))
+                                     ;current-time-ses (int (/ (System/currentTimeMillis) 1000))
+                                     ;uptime-secs (- current-time-ses start-time-secs)
+                                     ;uptime-secs (inc uptime-secs)
+                                     ;uptime-secs (.get_uptime_secs topology)
+                                     uptime-secs (.get_uptime_secs executor)
+                                     spout_stats (.get_spout specifics)
+                                     acked (.get_acked spout_stats)
+                                     acked_600 (.get acked "600")
+                                     values (.values acked_600)
+                                     throughput-total (apply + values)
+                                     ;all (apply + throughput-all-executors)
+                                     ;throughput-all-executors (+ throughput-all-executors throughput-total)
+                                     ]
+                                 (println (str "uptime: " uptime-secs))
+                                 (println throughput-total)
+                                 (.add throughput-all-executors throughput-total)
+
+
+
+                                 (let [all  (apply + throughput-all-executors) ]
+                                   (println all)
+                                   (if (< uptime-secs 600)
+                                     (swap! throughput swap (/ all uptime-secs))
+                                     (swap! throughput swap (/ all 600)))
+                                   (println (int @throughput))
+                                 ))
+
+                               )))
+                         ;(let [start-time-secs (int (/ (.get topology-start-time topology-name) 1000))
+                         ;      current-time-ses (int (/ (System/currentTimeMillis) 1000))
+                         ;      uptime-secs (- current-time-ses start-time-secs)
+                         ;      uptime-secs (inc uptime-secs)
+                         ;      total (apply + throughput-all-executors)
+                         ;      a (println throughput-all-executors)]
+                         ;  (if (< uptime-secs 600)
+                         ;    (swap! throughput swap (/ total uptime-secs))
+                         ;    (swap! throughput swap (/ total 600))
+                         ;    )
+                         ;  )
+
+                         )
+                       )
+                     )) )))) @throughput ))
+
 
 ;;update rebalance-info-map and bolt-queue when rebalancing happens,
 (defn update-rebalance-info-map [^RebalanceInfo rebalance-info topology-name last-parallism current-parallism last-throughput bolt-name work-load]
@@ -414,6 +434,32 @@
       (println "***************add rebalance-info to bolt-queue")
       )))
 
+;; rebalance bolt
+(defn rebalance-bolt [topology-name bolt-name bolt-parallism]
+  (if (and (> bolt-parallism 0) (< bolt-parallism 17))
+    ;(println (str topology-name "-" bolt-name " is rebalancing to " bolt-parallism))
+    (let [current-time (System/currentTimeMillis)
+          ;thread  (MySingletonThread/getThread (SamplingThread.))
+          filePath (str "/home/wjw/storm/experiment/experiment_result/" (.format (SimpleDateFormat. "yyyy-MM-dd") (.getTime (Calendar/getInstance))) ".txt")
+          ]
+      ;(.stop thread)
+      ;(Thread/sleep 1)
+      (.print (FilePrinter. filePath) (str "\t rebalancing.........\t " topology-name "\t" bolt-name "\t" bolt-parallism "\t"
+                                        (.format (SimpleDateFormat. "yyyy-MM-dd-hh-MM-ss") (.getTime (Calendar/getInstance)))))
+      (rebalance "-w" "0" topology-name  "-e" (str bolt-name "=" bolt-parallism))
+      (.put topology-start-time topology-name current-time)
+      ;(Thread/sleep 30000)
+      ;(println "======================================sampling......==============================")
+      ; (.start thread)
+      ;(println "rebalance is done.")
+      )
+    (let [;topology-throughput (get-throughput-of-topology-by-name topology-name)
+          abc 0]
+      ;(update-rebalance-info-map rebalance-info topology-name last-parallism parallism topology-throughput bolt-name work-load)
+      (unset-rebalancing-flag-map topology-name))
+    )
+  )
+
 ;;do rebalance .
 (defn wait-and-rebalance [fun topology-name bolt-name last-parallism parallism]
   (let [topology-throughput (get-throughput-of-topology-by-name topology-name)
@@ -425,7 +471,19 @@
     (set-rebalancing-flag-map topology-name)
     (.put current-bolt-parallism (str topology-name "-" bolt-name) parallism)
     ;(println  (str "capacity: " (get-bolt-capacity-by-name topology-name bolt-name)))
-    ;(.interrupt thread)
+    ;(if (not (.isAlive thread))
+    ;  (doto
+    ;    (fun topology-name bolt-name parallism)
+    ;    (Thread/sleep 30000)
+    ;    (.start thread)
+    ;    )
+    ;  (doto
+    ;    (.sleep thread 30000)
+    ;    (fun topology-name bolt-name parallism)
+    ;    )
+
+    ;  )
+
     (fun topology-name bolt-name parallism)
     ;(Thread/sleep 3000)
     ;(println "******************start sampling...*********************")
@@ -497,7 +555,7 @@
                     (recur (inc cnt1)
                       (if not-checked?
                         (if (is-bolt? tname bname)
-                                       (if  (and (and (> capacity 0.2) ((complement =) bname "__acker"))
+                                       (if  (and (and (> capacity 0.7) ((complement =) bname "__acker"))
                                               ;(is-level-avaliable? topology-executor (+ parallism 1))
                                               (is-level-avaliable? topology-executor (.get para-to-real-para (+ (.get real-para-to-para parallism) 1)))
                                               )
@@ -514,7 +572,7 @@
                                            )
                                          ;(println "test")))
 
-                                         (if (and (and (< capacity 0.1) ((complement =) bname "__acker"))
+                                         (if (and (and (< capacity 0.3) ((complement =) bname "__acker"))
                                                ;(is-level-avaliable? topology-executor (- parallism 1))
                                                (is-level-avaliable? topology-executor (.get para-to-real-para (- (.get real-para-to-para parallism) 1)))
                                                )
@@ -629,18 +687,19 @@
                      executor-size (.size executors)
                      topology-name (.get_name topology)
                      ]                
-                 (loop [cnt1 0 acc 1] 
-                   (if(< cnt1 executor-size)
-                     (recur (inc cnt1 )
-                       (let [executor (.get executors  cnt1 )
-                             component-id (.get_component_id executor)
-                             stats (.get_stats executor)
-                             specifics (.get_specific stats)]
-                         (if (.is_set_spout specifics)
+                 ;(loop [cnt1 0 acc 1]
+                 ;  (if(< cnt1 executor-size)
+                 ;    (recur (inc cnt1 )
+                 ;      (let [executor (.get executors  cnt1 )
+                 ;            component-id (.get_component_id executor)
+                 ;            stats (.get_stats executor)
+                 ;            specifics (.get_specific stats)]
+                 ;        (if (.is_set_spout specifics)
                         ;   (println component-id)
 ;                             (println specifics)
-                           (.put topology-throughput-map topology-name (/ (.get (.get (.get_acked (.get_spout specifics)) "600") "default") 600))
-)))))))))))
+                           (.put topology-throughput-map topology-name (get-throughput-of-topology-by-name topology-name))
+;)))))
+                 ))))))
 ;;end 2014-05-26----2014-05-27
 
 ;;check if the throughput of a topology is increased after rebalanced.
@@ -660,7 +719,7 @@
         delta (- current-workload last-workload)
         rate (double (/ delta last-workload))
         ]
-    (if (> rate 0.1) 
+    (if (> rate 0.1)
       (swap! change swap 1)
       (if (< rate -0.1) 
         (swap! change swap -1)))
@@ -670,8 +729,8 @@
 ;;check if the capacity of a bolt is nomal.If it is large, the function will return 1.Else if it is small, the function will return -1.If it is nomal, the function will return 0.
 (defn is-capacity-nomal? [capacity]
   (let [flag (atom 0)]
-    (if (> capacity 0.3) (swap! flag swap 1)
-      (if (< capacity 0.1) (swap! flag swap -1)
+    (if (> capacity 0.7) (swap! flag swap 1)
+      (if (< capacity 0.3) (swap! flag swap -1)
         (swap! flag swap 0)))
     @flag))
 
@@ -760,7 +819,7 @@
               rebalance-time (.getRebalancingTime rebalance-info)
               current-time (System/currentTimeMillis)
               delta (- current-time rebalance-time)
-              delta (- 600000 delta)
+              delta (- 300000 delta)
               delay (if (>= delta 0) delta 0)]
           ;(println "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
           ;(println rebalance-info)
@@ -779,6 +838,8 @@
 ;  )
 (def init-flag 0)
 ;;main
+(defn to-string [topology-executor-map]
+  (MyUtils/getString topology-executor-map))
 (defn main-test []
   ;(let  [thread (MySingletonThread/getThread (SamplingThread.))]
   ;  (if (not (.isAlive thread))
@@ -792,10 +853,15 @@
   ;(println  executor-topology-map)
   (println "-------------------capacity of each bolt---------------------------")
   (println topology-executor-map)
+  (let [filePath (str "/home/wjw/storm/experiment/experiment_result/"
+                             (.format (SimpleDateFormat. "yyyy-MM-dd") (.getTime (Calendar/getInstance))) ".txt")]
+    (.print (FilePrinter. filePath) (MyUtils/getString topology-executor-map)))
+
 
   (get-throughput-of-topology sm)
   (println "-------------------throughput of each topology---------------------------")
   (println topology-throughput-map)
+  (.sample (SamplingThread. sm))
   (do-rebalance-descend-order )
   (def sm nil)
   ;(println )
@@ -859,11 +925,11 @@
  ;; )
 ;(Thread/sleep 10000)
 ;(init-topology-executor-level-map)
-(my-timer main-task 3000 30000)
+(my-timer main-task 3000 15000)
 (Thread/sleep 60000)
 ;(.start (MySingletonThread/getThread (SamplingThread.)))
 ;(rebalance-bolt "wordcount-dynamic" "wordCountBolt" 4)
-(println "=======================thread is starting")
+;(println "=======================thread is starting")
 (.start (Thread. #(check-rebalance-loop)))
 
 
@@ -886,3 +952,4 @@
 ;(.myPrint sorted-map)
 ;(unset-rebalancing-flag-map "wjw")
 ;(println rebalancing-flag-map)
+;(println (str "====" (get-workload-of-topology-by-name "wckafka")))

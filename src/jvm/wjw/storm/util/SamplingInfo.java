@@ -15,15 +15,26 @@ public class SamplingInfo {
     private long startTime = 0;
     private String tName = null;
     private long throught = 0;
+
+    public int getWorkload() {
+        return workload;
+    }
+
+    public void setWorkload(int workload) {
+        this.workload = workload;
+    }
+
+    private int workload =0;
     private String currentTime =new SimpleDateFormat("yyyy-MM-dd-HH:mm:ss").format((Calendar.getInstance()).getTime());
 
-    public SamplingInfo(double completeTime, int ackedSize, int failedSize, long startTime, String tName, long throught) {
+    public SamplingInfo(double completeTime, int ackedSize, int failedSize, long startTime, String tName, long throught,int workload) {
         this.completeTime = completeTime;
         this.ackedSize = ackedSize;
         this.failedSize = failedSize;
         this.startTime = startTime;
         this.tName = tName;
         this.throught = throught;
+        this.workload = workload;
     }
 
 
@@ -77,7 +88,7 @@ public class SamplingInfo {
 
     public String getSamplingInfo() {
         return "[" + currentTime +  "\t|\t" +tName + "\t|\t" + completeTime + "\t|\t" + ackedSize + "\t|\t"
-                + failedSize + "\t|\t" + startTime + "\t|\t" + throught +"]";
+                + failedSize + "\t|\t" + startTime + "\t|\t" + throught + "\t|\t" + workload +"]";
     }
 
     @Override
