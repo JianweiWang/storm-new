@@ -249,9 +249,27 @@
 
 ;; rebalance worker
 (defn rebalance-worker [topology-name worker-num]
-  (let [current-time (System/currentTimeMillis)]
-    (rebalance "-w 0 " topology-name  "-n" worker-num )
-    (.put topology-start-time topology-name current-time)
+  (if (and (> worker-num 1) (< worker-num 8))
+    ;(println (str topology-name "-" bolt-name " is rebalancing to " bolt-parallism))
+    (let [current-time (System/currentTimeMillis)
+          ;thread  (MySingletonThread/getThread (SamplingThread.))
+          filePath (str "/home/wjw/storm/experiment/experiment_result/" (MyUtils/getTimeDate) ".txt")
+          ]
+      ;(.stop thread)
+      ;(Thread/sleep 1)
+      (.print (FilePrinter. filePath) (str "\t rebalancing.........\t " topology-name "\t" "worker" "\t" worker-num "\t"
+                                        (MyUtils/getTimeSecond)))
+      (rebalance  "-w" "0" topology-name "-n" (str worker-num) )
+      (.put topology-start-time topology-name current-time)
+      ;(Thread/sleep 30000)
+      ;(println "======================================sampling......==============================")
+      ; (.start thread)
+      ;(println "rebalance is done.")
+      )
+    (let [;topology-throughput (get-throughput-of-topology-by-name topology-name)
+          abc 0]
+      ;(update-rebalance-info-map rebalance-info topology-name last-parallism parallism topology-throughput bolt-name work-load)
+      (unset-rebalancing-flag-map topology-name))
     )
   )
 
@@ -422,17 +440,35 @@
 
 
 ;;update rebalance-info-map and bolt-queue when rebalancing happens,
-(defn update-rebalance-info-map [^RebalanceInfo rebalance-info topology-name last-parallism current-parallism last-throughput bolt-name work-load]
- (if (nil? rebalance-info)
-   (let [rebalance-info (RebalanceInfo. topology-name  bolt-name last-parallism current-parallism last-throughput work-load)] 
-    (.put rebalance-info-map topology-name rebalance-info)
-    (bolt-queue-add rebalance-info)
-    (println "***************add rebalance-info to bolt-queue"))
-    (let [rebalance-info (.setData rebalance-info topology-name bolt-name last-parallism current-parallism last-throughput work-load)]
+(defn update-rebalance-info-map
+  ( [^RebalanceInfo rebalance-info topology-name last-parallism current-parallism last-throughput bolt-name work-load]
+  (if (nil? rebalance-info)
+     (let [rebalance-info (RebalanceInfo. topology-name  bolt-name last-parallism current-parallism last-throughput work-load)]
+      (.put rebalance-info-map topology-name rebalance-info)
+     (bolt-queue-add rebalance-info)
+     (println "***************add rebalance-info to bolt-queue")
+       (println rebalance-info))
+
+      (let [rebalance-info (.setData rebalance-info topology-name bolt-name last-parallism current-parallism last-throughput work-load)]
+        (.put rebalance-info-map topology-name rebalance-info)
+        (bolt-queue-add rebalance-info)
+        (println "***************add rebalance-info to bolt-queue")
+        (println rebalance-info)
+        )))
+  ([^RebalanceInfo rebalance-info topology-name worker-num isBolt last-throughput work-load]
+  (if (nil? rebalance-info)
+    (let [rebalance-info (RebalanceInfo. topology-name worker-num isBolt last-throughput work-load)]
       (.put rebalance-info-map topology-name rebalance-info)
       (bolt-queue-add rebalance-info)
       (println "***************add rebalance-info to bolt-queue")
+      (println rebalance-info))
+    (let [rebalance-info (.setData rebalance-info topology-name worker-num,isBolt last-throughput work-load)]
+      (.put rebalance-info-map topology-name rebalance-info)
+      (bolt-queue-add rebalance-info)
+      (println "***************add rebalance-info to bolt-queue")
+      ;(println rebalance-info)
       )))
+  )
 
 ;; rebalance bolt
 (defn rebalance-bolt [topology-name bolt-name bolt-parallism]
@@ -440,12 +476,12 @@
     ;(println (str topology-name "-" bolt-name " is rebalancing to " bolt-parallism))
     (let [current-time (System/currentTimeMillis)
           ;thread  (MySingletonThread/getThread (SamplingThread.))
-          filePath (str "/home/wjw/storm/experiment/experiment_result/" (.format (SimpleDateFormat. "yyyy-MM-dd") (.getTime (Calendar/getInstance))) ".txt")
+          filePath (str "/home/wjw/storm/experiment/experiment_result/" (MyUtils/getTimeDate) ".txt")
           ]
       ;(.stop thread)
       ;(Thread/sleep 1)
       (.print (FilePrinter. filePath) (str "\t rebalancing.........\t " topology-name "\t" bolt-name "\t" bolt-parallism "\t"
-                                        (.format (SimpleDateFormat. "yyyy-MM-dd-hh-MM-ss") (.getTime (Calendar/getInstance)))))
+                                        (MyUtils/getTimeSecond)))
       (rebalance "-w" "0" topology-name  "-e" (str bolt-name "=" bolt-parallism))
       (.put topology-start-time topology-name current-time)
       ;(Thread/sleep 30000)
@@ -459,7 +495,39 @@
       (unset-rebalancing-flag-map topology-name))
     )
   )
+(defn wait-and-rebalance-worker [fun topology-name worker-num]
+  (let [topology-throughput (get-throughput-of-topology-by-name topology-name)
+        work-load (get-workload-of-topology-by-name topology-name)
+        rebalance-info (.get rebalance-info-map topology-name)
+        ;thread  (MySingletonThread/getThread (SamplingThread.))
+        ]
+    (update-rebalance-info-map rebalance-info topology-name worker-num true topology-throughput work-load)
+    (set-rebalancing-flag-map topology-name)
+    ;(.put current-bolt-parallism (str topology-name "-" bolt-name) parallism)
+    ;(println  (str "capacity: " (get-bolt-capacity-by-name topology-name bolt-name)))
+    ;(if (not (.isAlive thread))
+    ;  (doto
+    ;    (fun topology-name bolt-name parallism)
+    ;    (Thread/sleep 30000)
+    ;    (.start thread)
+    ;    )
+    ;  (doto
+    ;    (.sleep thread 30000)
+    ;    (fun topology-name bolt-name parallism)
+    ;    )
 
+    ;  )
+
+    (fun topology-name worker-num)
+    ;(Thread/sleep 3000)
+    ;(println "******************start sampling...*********************")
+    ;(println thread)
+    ;(.start thread)
+    ;(println "******************sampling***********************")
+    ;(println current-bolt-parallism)
+    ; (println "printing current-bolt-parallism done.")
+    )
+  )
 ;;do rebalance .
 (defn wait-and-rebalance [fun topology-name bolt-name last-parallism parallism]
   (let [topology-throughput (get-throughput-of-topology-by-name topology-name)
@@ -559,40 +627,73 @@
                                               ;(is-level-avaliable? topology-executor (+ parallism 1))
                                               (is-level-avaliable? topology-executor (.get para-to-real-para (+ (.get real-para-to-para parallism) 1)))
                                               )
-                                         ;[^RebalanceInfo rebalance-info topology-name last-parallism current-parallism last-throughput bolt-name]
-                                         (let [;current-parallism (+ parallism 1)
-                                               current-parallism (.get para-to-real-para (+ (.get real-para-to-para parallism) 1))
-                                               topology-throughput (get-throughput-of-topology-by-name tname)]
-                                           ;(update-rebalance-info-map rebalance-info topology-name parallism current-parallism topology-throughput bolt-name)
-                                           (println "1:go into wait-and-rebalance.....")
-                                           (println topology-executor)
-                                           (println (str "1:usage: " capacity ))
-                                           ;(wait-and-rebalance rebalance-bolt tname bname parallism (+ parallism 1))
-                                           (wait-and-rebalance rebalance-bolt tname bname parallism current-parallism)
+                                         (if (> (/ (.getExecutorNum (StormMonitor.) tname) (.getWorkerNum (StormMonitor.) tname) ) 4)
+                                           (let [a 0]
+                                             (println (str "******************************" (/ (.getExecutorNum (StormMonitor.) tname) (.getWorkerNum (StormMonitor.) tname))))
+                                             (wait-and-rebalance-worker rebalance-worker tname (+ (.getWorkerNum (StormMonitor.) tname) 1))
+                                             )
+
+                                           (let [;current-parallism (+ parallism 1)
+                                                 current-parallism (.get para-to-real-para (+ (.get real-para-to-para parallism) 1))
+                                                 topology-throughput (get-throughput-of-topology-by-name tname)]
+                                             ;(update-rebalance-info-map rebalance-info topology-name parallism current-parallism topology-throughput bolt-name)
+                                             (println "1:go into wait-and-rebalance.....")
+                                             (println topology-executor)
+                                             (println (str "1:usage: " capacity ))
+                                             ;(wait-and-rebalance rebalance-bolt tname bname parallism (+ parallism 1))
+                                             (if (< current-parallism 17)
+                                               (wait-and-rebalance rebalance-bolt tname bname parallism current-parallism))
+
+                                             )
                                            )
+                                         ;[^RebalanceInfo rebalance-info topology-name last-parallism current-parallism last-throughput bolt-name]
+                                         ;(let [;current-parallism (+ parallism 1)
+                                         ;      current-parallism (.get para-to-real-para (+ (.get real-para-to-para parallism) 1))
+                                         ;      topology-throughput (get-throughput-of-topology-by-name tname)]
+                                           ;(update-rebalance-info-map rebalance-info topology-name parallism current-parallism topology-throughput bolt-name)
+                                         ;  (println "1:go into wait-and-rebalance.....")
+                                         ;  (println topology-executor)
+                                         ;  (println (str "1:usage: " capacity ))
+                                           ;(wait-and-rebalance rebalance-bolt tname bname parallism (+ parallism 1))
+                                         ;  (wait-and-rebalance rebalance-bolt tname bname parallism current-parallism)
+                                         ;  )
                                          ;(println "test")))
 
                                          (if (and (and (< capacity 0.3) ((complement =) bname "__acker"))
                                                ;(is-level-avaliable? topology-executor (- parallism 1))
                                                (is-level-avaliable? topology-executor (.get para-to-real-para (- (.get real-para-to-para parallism) 1)))
                                                )
-                                           (let [;current-parallism (- parallism 1)
-                                                 current-parallism (.get para-to-real-para (- (.get real-para-to-para parallism) 1))
-                                                 topology-throughput (get-throughput-of-topology-by-name tname)]
-                                             ;[^RebalanceInfo rebalance-info topology-name last-parallism current-parallism last-throughput bolt-name]
+                                           (if (< (/ (.getExecutorNum (StormMonitor.) tname) (.getWorkerNum (StormMonitor.) tname)) 3)
+                                             (wait-and-rebalance-worker rebalance-worker tname (- (.getWorkerNum (StormMonitor.) tname) 1))
+                                             (let [;current-parallism (+ parallism 1)
+                                                   current-parallism (.get para-to-real-para (- (.get real-para-to-para parallism) 1))
+                                                   topology-throughput (get-throughput-of-topology-by-name tname)]
+                                               ;(update-rebalance-info-map rebalance-info topology-name parallism current-parallism topology-throughput bolt-name)
+                                               (println "1:go into wait-and-rebalance.....")
+                                               (println topology-executor)
+                                               (println (str "1:usage: " capacity ))
+                                               ;(wait-and-rebalance rebalance-bolt tname bname parallism (+ parallism 1))
+                                               (wait-and-rebalance rebalance-bolt tname bname parallism current-parallism)
+                                               )
+                                             )
+                                           ;(let [;current-parallism (- parallism 1)
+                                           ;      current-parallism (.get para-to-real-para (- (.get real-para-to-para parallism) 1))
+                                           ;      topology-throughput (get-throughput-of-topology-by-name tname)]
+                                           ;  ;[^RebalanceInfo rebalance-info topology-name last-parallism current-parallism last-throughput bolt-name]
                                              ;(update-rebalance-info-map rebalance-info topology-name parallism current-parallism topology-throughput bolt-name)
-                                             (println "2:go into wait-and-rebalance.....")
-                                             (println topology-executor)
-                                             (println (str "2:usage: " capacity ))
-                                             (wait-and-rebalance rebalance-bolt tname bname parallism (.get para-to-real-para (- (.get real-para-to-para parallism) 1)))
+                                           ;  (println "2:go into wait-and-rebalance.....")
+                                           ;  (println topology-executor)
+                                           ;  (println (str "2:usage: " capacity ))
+                                           ;  (wait-and-rebalance rebalance-bolt tname bname parallism (.get para-to-real-para (- (.get real-para-to-para parallism) 1)))
                                              ;(println current-bolt-parallism)
                                              ;(println topology-executor)
                                              ; (println parallism)
                                              ; (println (- parallism 1))
                                              ;(.put (java.util.HashMap.) "abc" 0)
                                              ;(.put current-bolt-parallism topology-executor (- parallism 1))
-                                             ))
-                                         )))
+                                           ;  ))
+                                         )
+                                         ))
                     )
                   )
                 )
@@ -604,7 +705,7 @@
       )
     )
 
-  ))
+  )))
 
 (defn do-rebalance []
   (let [map-length (.size topology-executor-map)
@@ -736,7 +837,8 @@
 
 ;;check whether a rebalance is good.A rebalance is good if the throughput of the topology increases after rebalancing, otherwise it is bad.
 (defn rebalance-good? [^RebalanceInfo rebalance-info]
-  (let [topology-name (.getTopologyName rebalance-info)
+  (if (.isBolt rebalance-info)
+    (let [topology-name (.getTopologyName rebalance-info)
         bolt-name (.getBoltName rebalance-info)
         executor-id (str topology-name "-" bolt-name)
         throughput-increased? (is-throughput-increased? rebalance-info)
@@ -749,7 +851,7 @@
     ;(println "current capacity....................................................")
    ; (println capacity)
     ;(println str (work-load-change  "    "  capacity-level))
-    (if (or throughput-increased? (= capacity-level 0)) 
+    (if (or throughput-increased? (= capacity-level 0))
       (swap! return-flag not) 
       (if (and (= work-load-change -1) (not throughput-increased?)) 
         (let [a 1]
@@ -760,7 +862,35 @@
           ;(unset-topology-executor-level-map executor-id current-parallism)
           )))
     ;(if (@return-flag) (println "rebalance is good!") (println "rebalance is bad!"))
-     @return-flag))
+     @return-flag)
+    (let [topology-name (.getTopologyName rebalance-info)
+          throughput-increased? (is-throughput-increased? rebalance-info)
+
+          work-load-change (workload-change rebalance-info)
+          return-flag (atom false)
+          ]
+      ;(println "current capacity....................................................")
+      ; (println capacity)
+      ;(println str (work-load-change  "    "  capacity-level))
+      (if throughput-increased?
+        (swap! return-flag not)
+        (if (and (= work-load-change -1) (not throughput-increased?))
+          (let [a 1]
+            (swap! return-flag not)
+            ;(set-topology-executor-level-map executor-id last-parallism)
+            ;(init-topology-executor-level-map)
+            )
+         ; (if (= work-load-change 1)
+            ;(set-topology-executor-level-map executor-id current-parallism)
+            ;(unset-topology-executor-level-map executor-id current-parallism)
+           ; ))
+            ))
+      ;(if (@return-flag) (println "rebalance is good!") (println "rebalance is bad!"))
+      @return-flag)
+
+    )
+
+  )
 
 ;;get rebalanced topology from bolt-queue.
 (defn get-rebalanced-topology []
@@ -773,7 +903,8 @@
 
 (defn check-rebalance [rebalance-info]
   (if ((complement nil?) rebalance-info)
-    (let [topology-name (.getTopologyName rebalance-info)
+    (if (.isBolt rebalance-info)
+      (let [topology-name (.getTopologyName rebalance-info)
           bolt-name (.getBoltName rebalance-info)
           executor-id (str topology-name "-" bolt-name)
           current-parallism (.getCurrentParallism rebalance-info)
@@ -800,7 +931,31 @@
             ;;TODO rebalance: decrease the parallism
             ))
         )
-    )))
+    )
+      (let [topology-name (.getTopologyName rebalance-info)
+            ;is-bolt (.isBolt rebalance-info)
+            ;rebalance-fun (if is-bolt 'rebalance-bolt )
+            worker-num (.getWorkerNum rebalance-info)
+            ]
+
+          (if (rebalance-good? rebalance-info)
+            (let [abc (atom 0)]
+              ;(set-topology-executor-level-map executor-id current-parallism)
+              ;(init-topology-executor-level-map)
+              (unset-rebalancing-flag-map topology-name)
+              )
+
+            (let [abc (atom 0)]
+              ;(println "testtesttesttesttesttesttesttesttesttesttesttest")
+              ;(unset-topology-executor-level-map executor-id current-parallism)
+              ;(wait-and-rebalance rebalance-bolt topology-name bolt-name (- last-parallism 1) last-parallism)
+              (wait-and-rebalance-worker rebalance-bolt topology-name (- worker-num 1))
+              ;;TODO rebalance: decrease the parallism
+              ))
+          )
+      )
+
+    ))
 
 (defn my-timer 
   ( [task ^Long time1 ^Long time2]  

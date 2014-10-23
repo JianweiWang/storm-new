@@ -1,6 +1,6 @@
 ;;test clojure proxy
 (ns wjw.test
-  (:import [java.util ArrayList HashMap List Calendar]
+  (:import [java.util ArrayList HashMap List Calendar Date]
            [wjw.storm.util FilePrinter]
            [java.text SimpleDateFormat])
   (:import [java.util Collection Comparator]))
@@ -31,14 +31,21 @@
 ;    (println my-map)
 ;    )
 ;  )
-(defn test-return [x]
-  (if (= x 1)
-    true
-    false))
+(defn test-return
+  ([x]
+    (if (= x 1)
+      true
+      false))
+  ([x y]
+    (+ x y))
+  )
 ;(.print (FilePrinter. "/home/wjw/2222.txt") (str "rebalancing......... " (.format (SimpleDateFormat. "yyyy-MM-dd-hh-MM-ss") (.getTime (Calendar/getInstance)))))
 
 (def a 2)
 (let [b 3]
   (def a 3))
-(println a )
+
+(println (test-return 2))
+
+;(println (.format (SimpleDateFormat. "yyyy-MM-dd-hh:MM:ss") (.getTime (Calendar/getInstance))))
 ;(test-fun)

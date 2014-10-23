@@ -1,5 +1,6 @@
 package wjw.storm.util;
 
+import java.text.SimpleDateFormat;
 import java.util.*;
 
 public class MyUtils {
@@ -58,10 +59,14 @@ public class MyUtils {
         });
 
     }
-
-    public static int getWorkerSize(StormMonitor sm) {
-        return
+    public static String getTimeSecond() {
+        return new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss").format((Calendar.getInstance()).getTime());
     }
+
+    public static String getTimeDate() {
+        return new SimpleDateFormat("yyyy-MM-dd").format((Calendar.getInstance()).getTime());
+    }
+
 
 
 	public static void main(String[] args) {

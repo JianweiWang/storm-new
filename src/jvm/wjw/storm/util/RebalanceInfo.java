@@ -13,7 +13,17 @@ public class RebalanceInfo {
 	private long rebalancingTime;
 	private boolean isBolt = true;
 	private int workLoad;
-	public RebalanceInfo(String topologyName,String boltName,int lastParallism, int currentParallism ,int lastThroughput,boolean isBolt,int workLoad) {
+    private int workerNum;
+
+    public int getWorkerNum() {
+        return workerNum;
+    }
+
+    public void setWorkerNum(int workerNum) {
+        this.workerNum = workerNum;
+    }
+
+    public RebalanceInfo(String topologyName,String boltName,int lastParallism, int currentParallism ,int lastThroughput,boolean isBolt,int workLoad) {
 		this.lastParallism = lastParallism;
 		this.currentParallism = currentParallism;
 		this.lastThroughput = lastThroughput;
@@ -24,8 +34,16 @@ public class RebalanceInfo {
 		this.setWorkLoad(workLoad);
 		
 	}
-	
-	public RebalanceInfo(String topologyName,String boltName,int lastParallism, int currentParallism ,int lastThroughput,int workLoad) {
+
+    public RebalanceInfo(String topologyName, int workerNum, boolean isBolt,int lastThroughput, int workLoad) {
+        this.lastThroughput = lastThroughput;
+        this.topologyName = topologyName;
+        this.isBolt = isBolt;
+        this.workLoad = workLoad;
+        this.workerNum = workerNum;
+    }
+
+    public RebalanceInfo(String topologyName,String boltName,int lastParallism, int currentParallism ,int lastThroughput,int workLoad) {
 		this.lastParallism = lastParallism;
 		this.currentParallism = currentParallism;
 		this.lastThroughput = lastThroughput;
@@ -46,6 +64,18 @@ public class RebalanceInfo {
 		setWorkLoad(workLoad);
 		return this;
 	}
+
+    public RebalanceInfo setData(String topologyName ,int workerNum,boolean isBolt,int lastThroughput ,int workLoad) {
+
+
+        setLastThroughput(lastThroughput);
+        setTopologyName(topologyName);
+        setRebalancingTime(System.currentTimeMillis());
+        setWorkLoad(workLoad);
+        setWorkerNum(workerNum);
+        return this;
+    }
+
 	public int getLastParallism() {
 		return lastParallism;
 	}
