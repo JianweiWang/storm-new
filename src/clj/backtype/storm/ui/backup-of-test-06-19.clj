@@ -71,6 +71,9 @@
 ;;parallism to real parallism
 (def para-to-real-para (ConcurrentHashMap.))
 
+;;
+(def is-rebalancing (atom 0) )
+
 ;;init para-to-real-para
 (defn init-para-to-real-para []
   (.put para-to-real-para 1 1)
@@ -259,6 +262,9 @@
       ;(Thread/sleep 1)
       (.print (FilePrinter. filePath) (str "\t rebalancing.........\t " topology-name "\t" "worker" "\t" worker-num "\t"
                                         (MyUtils/getTimeSecond)))
+      (.print (FilePrinter. filePath) (str "\t rebalancing.........\t "  current-bolt-parallism
+                                        ))
+      (swap! is-rebalancing swap 1)
       (rebalance  "-w" "0" topology-name "-n" (str worker-num) )
       (.put topology-start-time topology-name current-time)
       ;(Thread/sleep 30000)
@@ -482,6 +488,9 @@
       ;(Thread/sleep 1)
       (.print (FilePrinter. filePath) (str "\t rebalancing.........\t " topology-name "\t" bolt-name "\t" bolt-parallism "\t"
                                         (MyUtils/getTimeSecond)))
+      (.print (FilePrinter. filePath) (str "\t rebalancing.........\t " current-bolt-parallism
+                                        ))
+      (swap! is-rebalancing swap 1)
       (rebalance "-w" "0" topology-name  "-e" (str bolt-name "=" bolt-parallism))
       (.put topology-start-time topology-name current-time)
       ;(Thread/sleep 30000)
@@ -501,7 +510,7 @@
         rebalance-info (.get rebalance-info-map topology-name)
         ;thread  (MySingletonThread/getThread (SamplingThread.))
         ]
-    (update-rebalance-info-map rebalance-info topology-name worker-num true topology-throughput work-load)
+    (update-rebalance-info-map rebalance-info topology-name worker-num false topology-throughput work-load)
     (set-rebalancing-flag-map topology-name)
     ;(.put current-bolt-parallism (str topology-name "-" bolt-name) parallism)
     ;(println  (str "capacity: " (get-bolt-capacity-by-name topology-name bolt-name)))
@@ -592,6 +601,7 @@
      false))
 
 ;;check the usage of each executor to decides whether it needs to be rebalanced and how to be rebalanced.
+
 (defn do-rebalance-descend-order []
   (let [capacity-map (HashMap.)]
     (get-bolt-capacity (StormMonitor.) capacity-map)
@@ -1000,25 +1010,32 @@
   ;  (if (not (.isAlive thread))
   ;    (.start thread))
   ;  )
-  (def sm (StormMonitor.))
-  (println "-------------------parallism of each bolt---------------------------")
-  (println current-bolt-parallism)
-  (mk-executor-topology-map executor-topology-map sm)
-  (get-bolt-capacity sm topology-executor-map)
-  ;(println  executor-topology-map)
-  (println "-------------------capacity of each bolt---------------------------")
-  (println topology-executor-map)
-  (let [filePath (str "/home/wjw/storm/experiment/experiment_result/"
-                             (.format (SimpleDateFormat. "yyyy-MM-dd") (.getTime (Calendar/getInstance))) ".txt")]
-    (.print (FilePrinter. filePath) (MyUtils/getString topology-executor-map)))
+  (if (= @is-rebalancing 0)
+    (let [nothing 0]
+      (def sm (StormMonitor.))
+      (println "-------------------parallism of each bolt---------------------------")
+      (println current-bolt-parallism)
+      (mk-executor-topology-map executor-topology-map sm)
+      (get-bolt-capacity sm topology-executor-map)
+      ;(println  executor-topology-map)
+      (println "-------------------capacity of each bolt---------------------------")
+      (println topology-executor-map)
+      (let [filePath (str "/home/wjw/storm/experiment/experiment_result/"
+                       (.format (SimpleDateFormat. "yyyy-MM-dd") (.getTime (Calendar/getInstance))) ".txt")]
+        (.print (FilePrinter. filePath) (MyUtils/getString topology-executor-map)))
 
 
-  (get-throughput-of-topology sm)
-  (println "-------------------throughput of each topology---------------------------")
-  (println topology-throughput-map)
-  (.sample (SamplingThread. sm))
+      (get-throughput-of-topology sm)
+      (println "-------------------throughput of each topology---------------------------")
+      (println topology-throughput-map)
+      (.sample (SamplingThread. sm))
+      (def sm nil)
+      )
+    (swap! is-rebalancing swap 0)
+    )
+
   (do-rebalance-descend-order )
-  (def sm nil)
+
   ;(println )
   ;(def file-writer (java.io.FileWriter. "/root/storm/storm_experiment/workload_and_throughput.txt" true))
   ;(def throughput (str "throughput: " (int (get-throughput-of-topology-by-name "wc-100"))  "\n"))
@@ -1080,6 +1097,10 @@
  ;; )
 ;(Thread/sleep 10000)
 ;(init-topology-executor-level-map)
+(let [filePath (str "/home/wjw/storm/experiment/experiment_result/"
+                 (.format (SimpleDateFormat. "yyyy-MM-dd") (.getTime (Calendar/getInstance))) ".txt")]
+  (.print (FilePrinter. filePath) "=======================================start auto-rebalancing===========================================")
+  (.print (FilePrinter. filePath) current-bolt-parallism))
 (my-timer main-task 3000 15000)
 (Thread/sleep 60000)
 ;(.start (MySingletonThread/getThread (SamplingThread.)))

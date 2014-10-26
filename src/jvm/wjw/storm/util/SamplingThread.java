@@ -87,12 +87,24 @@ public class SamplingThread {
                     startTime= executor.get_uptime_secs();
                     bname = executor.get_component_id();
                     if (executor.get_stats().get_specific().is_set_spout()) {
-
-                        completeTime = MyUtils.average(executor.get_stats().get_specific().get_spout().get_complete_ms_avg().get("600").values());
-                        ackedSize += (int) MyUtils.sum(executor.get_stats().get_specific().get_spout().get_acked().get(":all-time").values());
-                        failedSize += (int) MyUtils.sum(executor.get_stats().get_specific().get_spout().get_failed().get(":all-time").values());
+                        //System.out.println(executor.get_stats().get_specific().get_spout().get_complete_ms_avg().get("600").values());
+                        double completeTime1 = MyUtils.average(executor.get_stats().get_specific().get_spout().get_complete_ms_avg().get("600").values());
+                        if(completeTime1 != 0.0) {
+                            completeTime = completeTime1;
+                        }
+                        int ackedSize1 = (int) MyUtils.sum(executor.get_stats().get_specific().get_spout().get_acked().get(":all-time").values());
+                        if(ackedSize1 != -1) {
+                            ackedSize += ackedSize1;
+                        }
+                        int failedSize1 = (int) MyUtils.sum(executor.get_stats().get_specific().get_spout().get_failed().get(":all-time").values());
+                        if(failedSize1 != -1) {
+                            failedSize += failedSize1;
+                        }
                         ackedSize_600 += (int) MyUtils.sum(executor.get_stats().get_specific().get_spout().get_acked().get("600").values());
-                        workload_600 = (int) MyUtils.sum(executor.get_stats().get_emitted().get("600").values());
+                        int workload_6001 = (int) MyUtils.sum(executor.get_stats().get_emitted().get("600").values());
+                        if(workload_6001 != -1) {
+                            workload_600 = workload_6001;
+                        }
 
 
                         //System.out.println(samplingInfo);
@@ -118,6 +130,7 @@ public class SamplingThread {
                 }
                 samplingInfo = new SamplingInfo(completeTime,ackedSize,failedSize,startTime,tname,throughput,workload_600);
                 System.out.println(samplingInfo);
+                //System.out.println(completeTime);
                 try {
                     filePrinter.print(samplingInfo);
                 } catch (Exception e) {

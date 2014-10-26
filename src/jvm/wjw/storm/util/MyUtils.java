@@ -8,24 +8,48 @@ public class MyUtils {
 
 	public static double average(Collection<Double> c) {
 		int size = c.size();
-		double average ;
+        int count = 0;
+		Double average = 0.0;
 		double sum = 0;
 		Iterator iter = c.iterator();
 		while(iter.hasNext()) {
-			sum = sum +((Double)iter.next());
+            Double tmp = (Double)iter.next();
+            if(tmp != null) {
+               // System.out.println(tmp);
+                System.out.println("average: " + tmp);
+                sum = sum +tmp;
+                count ++;
+            }
+
 		}
-		average = sum / size;
+        if(count != 0) {
+            average = sum / count;
+        }
+
+        //if(average != null)
+
 		return average;
 	}
 
     public static long sum(Collection<Long> collection) {
         int size = collection.size();
         long sum = 0;
+        int count = 0;
         Iterator iterator = collection.iterator();
         while(iterator.hasNext()) {
-            sum = sum + (Long) iterator.next();
+            Long tmp = (Long) iterator.next();
+            if(null != tmp) {
+                sum = sum + tmp;
+                count++;
+            }
+
         }
-        return sum;
+        if(count == 0) {
+            return -1;
+        } else {
+            return sum;
+        }
+
     }
 
     public static String getString(HashMap h) {
